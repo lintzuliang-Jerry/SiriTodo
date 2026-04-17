@@ -10,19 +10,81 @@ let todos = {
 // DOM Elements
 const micBtn = document.getElementById('mic-btn');
 const statusBadge = document.getElementById('recording-status');
-const lists = {
-    today: document.getElementById('list-today'),
-    routine: document.getElementById('list-routine'),
-    longterm: document.getElementById('list-longterm')
+
+// Remove single ID lists -> replaced by document.querySelectorAll('.list-...') inside renderList
+const listSelectors = {
+    today: '.list-today',
+    routine: '.list-routine',
+    longterm: '.list-longterm'
 };
 
 // Auto-generate unique IDs
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
+// --- Pager Navigation & Infinite Loop Wrap Around ---
+window.scrollToPage = function(index) {
+    const pager = document.getElementById('pager');
+    // We add 1 because visually Page 1 is at 100vw, Page 2 is at 200vw
+    pager.scrollBehavior = 'smooth';
+    pager.scrollTo({ left: window.innerWidth * (index + 1), behavior: 'smooth' });
+};
+
+function initPagerWrapAround() {
+    const pager = document.getElementById('pager');
+    
+    // Jump to Real Page 1 immediately on load without animation
+    setTimeout(() => {
+        pager.style.scrollBehavior = 'auto';
+        pager.scrollLeft = window.innerWidth;
+        setTimeout(() => pager.style.scrollBehavior = 'smooth', 50);
+    }, 0);
+
+    let isWrapping = false;
+    
+    pager.addEventListener('scroll', () => {
+        if (isWrapping) return;
+        
+        const maxScroll = window.innerWidth * 3;
+        const currentLeft = pager.scrollLeft;
+
+        // Hit Clone 2 (Far Left)
+        if (currentLeft === 0) {
+            isWrapping = true;
+            pager.style.scrollBehavior = 'auto';
+            pager.scrollLeft = window.innerWidth * 2; // Jump to Real 2
+            setTimeout(() => {
+                pager.style.scrollBehavior = 'smooth';
+                isWrapping = false;
+            }, 50);
+        }
+        // Hit Clone 1 (Far Right)
+        else if (currentLeft >= maxScroll - 5) { // Safe margin
+            isWrapping = true;
+            pager.style.scrollBehavior = 'auto';
+            pager.scrollLeft = window.innerWidth * 1; // Jump to Real 1
+            setTimeout(() => {
+                pager.style.scrollBehavior = 'smooth';
+                isWrapping = false;
+            }, 50);
+        }
+        
+        // Update dots (calculate based on 100vw = index 0)
+        let dotIndex = Math.round(currentLeft / window.innerWidth) - 1;
+        if (dotIndex < 0) dotIndex = 1;
+        if (dotIndex > 1) dotIndex = 0;
+        
+        document.querySelectorAll('.dot').forEach((dot, i) => {
+            dot.classList.toggle('active', i === dotIndex);
+        });
+    }, { passive: true });
+}
+
 // Initialize
 function init() {
     loadTodos();
     renderAll();
+    initPagerWrapAround();
+    initPagerDrag();
     
     // Check auto-record shortcut
     const params = new URLSearchParams(window.location.search);
@@ -31,25 +93,60 @@ function init() {
     }
 }
 
+// ---------------------------------------------------------
+// Pager Drag Engine (Desktop Mouse Support)
+// ---------------------------------------------------------
+function initPagerDrag() {
+    const pager = document.getElementById('pager');
+    let isPagerDragging = false;
+    let startX = 0;
+    let startScrollLeft = 0;
+
+    pager.addEventListener('pointerdown', (e) => {
+        // Let Mobile/Touch devices use their own perfect hardware-accelerated native swipe!
+        if (e.pointerType === 'touch') return;
+
+        // Only allow dragging on empty areas (ignore tasks & buttons)
+        if (e.target.closest('.task-text') || e.target.closest('button') || e.target.closest('input')) return;
+        
+        isPagerDragging = true;
+        startX = e.clientX;
+        startScrollLeft = pager.scrollLeft;
+        
+        // Disable smooth snapping while actively dragging so it tracks 1:1
+        pager.style.scrollBehavior = 'auto'; 
+        pager.style.scrollSnapType = 'none'; 
+        document.body.style.cursor = 'grabbing';
+    });
+
+    pager.addEventListener('pointermove', (e) => {
+        if (!isPagerDragging) return;
+        const diffX = e.clientX - startX;
+        pager.scrollLeft = startScrollLeft - diffX;
+    });
+
+    const stopDrag = () => {
+        if (!isPagerDragging) return;
+        isPagerDragging = false;
+        document.body.style.cursor = '';
+        pager.style.scrollBehavior = 'smooth';
+        pager.style.scrollSnapType = 'x mandatory';
+        
+        // Snap to nearest page (0, 1, 2, or 3)
+        const rawIndex = Math.round(pager.scrollLeft / window.innerWidth);
+        pager.scrollTo({ left: window.innerWidth * rawIndex, behavior: 'smooth' });
+    };
+
+    window.addEventListener('pointerup', stopDrag);
+    window.addEventListener('pointercancel', stopDrag);
+}
+
 // Storage Management & Data Migration
 function loadTodos() {
     try {
         const saved = localStorage.getItem('voiceTodosDataV2');
         if (saved) {
             todos = JSON.parse(saved);
-        } else {
-            const oldSaved = localStorage.getItem('voiceTodosData');
-            if (oldSaved) {
-                const oldTodos = JSON.parse(oldSaved);
-                ['today', 'routine', 'longterm'].forEach(cat => {
-                    if(oldTodos[cat]) {
-                        todos[cat] = oldTodos[cat].map(text => ({
-                            id: generateId(), text: text, done: false
-                        }));
-                    }
-                });
-                saveTodos(); 
-            }
         }
     } catch (e) {
         console.error("Local storage error", e);
@@ -61,83 +158,85 @@ function saveTodos() {
 }
 
 // ---------------------------------------------------------
-// UI Rendering & Interaction
+// UI Rendering & Interaction (Cloning Aware)
 // ---------------------------------------------------------
 function renderAll() {
-    Object.keys(lists).forEach(category => renderList(category));
+    Object.keys(listSelectors).forEach(category => renderList(category));
 }
 
 function renderList(category) {
-    const ul = lists[category];
-    ul.innerHTML = '';
+    const uls = document.querySelectorAll(listSelectors[category]);
     
-    if (todos[category].length === 0) {
-        ul.innerHTML = `<li class="empty-placeholder" style="justify-content: center; opacity: 0.5; pointer-events:none;"><span class="task-text" style="text-align:center; font-size: 14px;">沒有事項</span></li>`;
-        return;
-    }
-
-    todos[category].forEach((task, index) => {
-        const li = document.createElement('li');
-        li.dataset.id = task.id;
-        li.dataset.category = category;
-        if(task.done) li.classList.add('done');
+    uls.forEach(ul => {
+        ul.innerHTML = '';
         
-        // 1. Checkbox or Number according to section
-        if (category === 'routine') {
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.checked = task.done;
-            checkbox.onchange = (e) => {
-                task.done = e.target.checked;
-                if(task.done) li.classList.add('done');
-                else li.classList.remove('done');
-                saveTodos();
-            };
-            li.appendChild(checkbox);
-        } else {
-            const numSpan = document.createElement('div');
-            numSpan.className = 'task-number';
-            numSpan.textContent = index + 1;
-            li.appendChild(numSpan);
-            
-            // Priority Emphasis for top 3 in Today
-            if (category === 'today') {
-                if (index === 0) li.classList.add('priority-1');
-                else if (index === 1) li.classList.add('priority-2');
-                else if (index === 2) li.classList.add('priority-3');
-            }
+        if (todos[category].length === 0) {
+            ul.innerHTML = `<li class="empty-placeholder" style="justify-content: center; opacity: 0.5; pointer-events:none;"><span class="task-text" style="text-align:center; font-size: 14px;">沒有事項</span></li>`;
+            return;
         }
 
-        // 2. Text (The Handle)
-        const span = document.createElement('div');
-        span.className = 'task-text';
-        span.textContent = task.text;
-        
-        // 3. Actions (Edit Button only)
-        const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'task-actions';
-        
-        const editBtn = document.createElement('button');
-        editBtn.className = 'action-btn edit';
-        editBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
-        editBtn.onclick = () => {
-            const newText = prompt('編輯任務內容：', task.text);
-            if (newText !== null && newText.trim() !== '') {
-                task.text = newText.trim();
-                saveTodos();
-                renderList(category);
+        todos[category].forEach((task, index) => {
+            const li = document.createElement('li');
+            li.dataset.id = task.id;
+            li.dataset.category = category;
+            if(task.done) li.classList.add('done');
+            
+            // 1. Checkbox or Number according to section
+            if (category === 'routine') {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = task.done;
+                checkbox.onchange = (e) => {
+                    task.done = e.target.checked;
+                    saveTodos();
+                    renderAll(); // Sync to all clones instantly
+                };
+                li.appendChild(checkbox);
+            } else {
+                const numSpan = document.createElement('div');
+                numSpan.className = 'task-number';
+                numSpan.textContent = index + 1;
+                li.appendChild(numSpan);
+                
+                // Priority Emphasis for top 3 in Today
+                if (category === 'today') {
+                    if (index === 0) li.classList.add('priority-1');
+                    else if (index === 1) li.classList.add('priority-2');
+                    else if (index === 2) li.classList.add('priority-3');
+                }
             }
-        };
 
-        actionsDiv.appendChild(editBtn);
+            // 2. Text (The Handle)
+            const span = document.createElement('div');
+            span.className = 'task-text';
+            span.textContent = task.text;
+            
+            // 3. Actions (Edit Button only)
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'task-actions';
+            
+            const editBtn = document.createElement('button');
+            editBtn.className = 'action-btn edit';
+            editBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
+            editBtn.onclick = () => {
+                const newText = prompt('編輯任務內容：', task.text);
+                if (newText !== null && newText.trim() !== '') {
+                    task.text = newText.trim();
+                    saveTodos();
+                    renderAll(); // Sync everywhere
+                }
+            };
 
-        li.appendChild(span);
-        li.appendChild(actionsDiv);
-        
-        // Custom 100% JS Drag Engine
-        bindGestures(li, task.id, category);
+            actionsDiv.appendChild(editBtn);
 
-        ul.appendChild(li);
+            li.appendChild(span);
+            li.appendChild(actionsDiv);
+            
+            // Custom 100% JS Drag Engine
+            bindGestures(li, task.id, category);
+
+            ul.appendChild(li);
+        });
     });
 }
 
@@ -145,23 +244,23 @@ function renderList(category) {
 window.addManualTask = function(category) {
     todos[category].push({ id: generateId(), text: '新工作事項', done: false });
     saveTodos();
-    renderList(category);
+    renderAll();
 };
 
 window.resetRoutine = function() {
     todos['routine'].forEach(t => t.done = false);
     saveTodos();
-    renderList('routine');
+    renderAll();
 };
 
 function deleteItemById(category, id) {
     todos[category] = todos[category].filter(t => t.id !== id);
     saveTodos();
-    renderList(category);
+    renderAll();
 }
 
 // ---------------------------------------------------------
-// Unified Pure JS Gesture Engine (Replaces Sortable & Old Swipe)
+// Unified Pure JS Gesture Engine (Swipe to Delete & Drag to Sort)
 // ---------------------------------------------------------
 function bindGestures(li, id, category) {
     let startX = 0, startY = 0;
@@ -234,7 +333,6 @@ function bindGestures(li, id, category) {
             clone.style.transform = `translateY(${diffY}px)`;
             
             const rect = clone.getBoundingClientRect();
-            // Temporarily hide clone to check what elements are underneath it
             clone.style.visibility = 'hidden'; 
             const hoveredEl = document.elementFromPoint(rect.left + rect.width/2, rect.top + rect.height/2);
             clone.style.visibility = 'visible';
@@ -253,7 +351,7 @@ function bindGestures(li, id, category) {
                     hoveredLi.parentNode.insertBefore(placeholder, hoveredLi.nextSibling);
                 }
             } else if (hoveredUl) {
-                // If hovering over the empty category or gap between items
+                // Allows dropping into an empty category list natively
                 hoveredUl.appendChild(placeholder);
             }
         }
@@ -279,16 +377,21 @@ function bindGestures(li, id, category) {
         } else if (gestureType === 'sort') {
             const dropList = placeholder.parentNode;
             
-            // Revert DOM back to normal
             dropList.insertBefore(li, placeholder);
             placeholder.remove();
             clone.remove();
             li.style.display = '';
 
-            // Absolutely Foolproof State Save: Rebuild from the DOM hierarchy
+            // VERY IMPORTANT: Read the state from the active cloned page the user was looking at!
+            const activePage = li.closest('.page');
             const allTasks = [...todos.today, ...todos.routine, ...todos.longterm];
+            
             ['today', 'routine', 'longterm'].forEach(cat => {
-                const ul = document.getElementById('list-' + cat);
+                let ul = activePage.querySelector('.list-' + cat);
+                // Fallback to real DOM if the list doesn't exist on this active page copy
+                if (!ul) ul = document.querySelector('.page.real .list-' + cat);
+                if (!ul) return;
+                
                 let newCategoryArray = [];
                 Array.from(ul.children).forEach(child => {
                     if (child.dataset.id) {
@@ -299,7 +402,7 @@ function bindGestures(li, id, category) {
                 todos[cat] = newCategoryArray;
             });
             saveTodos();
-            renderAll();
+            renderAll(); // Sync to all clones instantly
         }
         gestureType = null;
     };
@@ -335,6 +438,13 @@ function parseTask(originalText) {
     todos[category].push({ id: generateId(), text: cleanText, done: false });
     saveTodos();
     renderAll();
+    
+    // Jump to the correct page via native snap index
+    if (category === 'routine') {
+        scrollToPage(1);
+    } else {
+        scrollToPage(0);
+    }
 }
 
 // ---------------------------------------------------------
