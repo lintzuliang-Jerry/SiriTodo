@@ -1,0 +1,235 @@
+:root {
+    /* 療育系配色 (清晰高對比版) */
+    --bg-color: #ebf0f4; /* 稍微加深底色的灰，讓純白卡片明顯浮現出來 */
+    --text-primary: #1e293b; /* 接近純黑的深濃灰，大幅提升閱讀清晰度 */
+    --text-secondary: #5a6b82; /* 加深次要文字的對比度 */
+    --accent-color: #7ba395; /* 鼠尾草綠 (Sage Green)，象徵平靜與完成 */
+    --accent-glow: rgba(123, 163, 149, 0.3);
+    --card-bg: #ffffff;
+    --card-border: transparent; /* 取消厚重邊框 */
+    --card-shadow: 0 8px 24px rgba(149, 157, 165, 0.08); /* 超級輕柔的擴散陰影 */
+    --bg-delete: #ff9a9e; /* 最溫柔的粉紅色，作為刪除背景 */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 120px;
+    min-height: 100vh;
+    overflow-x: hidden;
+    transition: background-color 0.4s ease;
+}
+
+.app-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* Header */
+header { margin-bottom: 32px; margin-top: 24px; }
+header h1 { 
+    font-size: 32px; 
+    font-weight: 700; 
+    letter-spacing: -0.5px; 
+    color: var(--text-primary); 
+}
+header p { 
+    color: var(--text-secondary); 
+    font-size: 14px; 
+    margin-top: 8px; 
+    font-weight: 400;
+}
+
+/* Sections */
+.todo-section { margin-bottom: 40px; }
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed rgba(0,0,0,0.06);
+}
+
+.section-header h2 {
+    font-size: 14px; 
+    letter-spacing: 1px; 
+    color: var(--text-secondary); 
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hint {
+    font-size: 11px;
+    letter-spacing: 0;
+    color: rgba(0,0,0,0.25);
+    font-weight: 400;
+}
+
+/* Action Buttons */
+.actions { display: flex; gap: 8px; }
+
+/* List */
+.todo-list { list-style: none; display: flex; flex-direction: column; gap: 12px; min-height: 20px; }
+
+.todo-list li {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    padding: 14px 18px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    box-shadow: var(--card-shadow);
+    transition: background 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease;
+    touch-action: pan-y; 
+    position: relative;
+    gap: 14px;
+}
+
+.todo-list li:hover {
+    box-shadow: 0 12px 28px rgba(149, 157, 165, 0.12);
+}
+
+/* ★ 圓角方塊 Checkbox (方格但不要太銳利) */
+input[type="checkbox"] {
+    appearance: none;
+    background-color: #fdfdfd;
+    margin: 0;
+    font: inherit;
+    color: currentColor;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #d1d9e6; /* 溫和的灰藍色邊框 */
+    border-radius: 6px; /* 介於直角與純圓之間，溫潤感 */
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+input[type="checkbox"]::before {
+    content: "";
+    width: 12px; height: 12px;
+    transform: scale(0);
+    transition: 150ms transform cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: inset 1em 1em white;
+    background-color: CanvasText;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="checkbox"]:checked { 
+    background-color: var(--accent-color); 
+    border-color: var(--accent-color); 
+}
+input[type="checkbox"]:checked::before { transform: scale(1); }
+
+/* Text Area (Now the Drag Handle) */
+.todo-list li .task-text { 
+    flex-grow: 1;
+    font-size: 16px; 
+    line-height: 1.5; 
+    word-break: break-all;
+    font-weight: 500;
+    cursor: grab;
+    padding: 6px 4px;
+    border-radius: 8px;
+    user-select: none;
+    touch-action: none;
+    color: var(--text-primary);
+}
+
+.todo-list li .task-text:active {
+    cursor: grabbing;
+}
+
+.todo-list li.done {
+    background-color: #fafbfc;
+    box-shadow: none;
+    border: 1px solid rgba(0,0,0,0.03);
+}
+
+.todo-list li.done .task-text {
+    text-decoration: line-through;
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+/* Action Buttons (Edit & Delete) */
+.task-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+.action-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    opacity: 0.4;
+    padding: 6px;
+    transition: all 0.2s;
+}
+.action-btn:hover { opacity: 0.9; transform: scale(1.1); }
+.action-btn.edit:hover { color: #5e6ad2; }
+
+/* Mic Button Styles */
+.mic-container {
+    position: fixed; 
+    bottom: 40px; 
+    left: 50%; 
+    transform: translateX(-50%); 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 10px; 
+    z-index: 100;
+}
+.status-badge { 
+    background: var(--text-primary); 
+    color: white; 
+    padding: 6px 16px; 
+    border-radius: 20px; 
+    font-size: 12px; 
+    font-weight: 500; 
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1); 
+    animation: bounce 2s infinite ease-in-out; 
+}
+.status-badge.hidden { 
+    opacity: 0; 
+    pointer-events: none; 
+    transform: translateY(10px); 
+    transition: all 0.3s ease; 
+}
+.mic-btn { 
+    width: 68px; 
+    height: 68px; 
+    border-radius: 50%; 
+    background: var(--accent-color); 
+    border: none; 
+    color: white; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    cursor: pointer; 
+    box-shadow: 0 10px 30px var(--accent-glow); 
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.3s ease, box-shadow 0.3s ease; 
+}
+.mic-btn:active { transform: scale(0.92); }
+.mic-btn.recording { 
+    background: #e66b6b; /* Softened red */
+    box-shadow: 0 0 0 0 rgba(230, 107, 107, 0.6); 
+    animation: pulseMic 1.5s infinite cubic-bezier(0.66, 0, 0, 1); 
+}
+
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes pulseMic { to { box-shadow: 0 0 0 25px rgba(230, 107, 107, 0); } }

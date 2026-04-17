@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SiriTodo - 極速記</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="theme-color" content="#0a0a0c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>My Tasks</h1>
+        </header>
+
+        <main>
+            <section class="todo-section">
+                <div class="section-header">
+                    <h2>當天待辦 <span class="hint">(今天、晚點)</span></h2>
+                    <div class="actions">
+                        <button class="icon-btn" onclick="addManualTask('today')" title="新增">+</button>
+                        <button class="icon-btn clear" onclick="clearCategory('today')" title="清空清單">🗑️</button>
+                    </div>
+                </div>
+                <ul id="list-today" class="todo-list" data-category="today"></ul>
+            </section>
+            
+            <section class="todo-section">
+                <div class="section-header">
+                    <h2>每日例行 <span class="hint">(每天、固定)</span></h2>
+                    <div class="actions">
+                        <button class="icon-btn" onclick="addManualTask('routine')" title="新增">+</button>
+                        <button class="icon-btn clear" onclick="clearCategory('routine')" title="清空清單">🗑️</button>
+                    </div>
+                </div>
+                <ul id="list-routine" class="todo-list" data-category="routine"></ul>
+            </section>
+            
+            <section class="todo-section">
+                <div class="section-header">
+                    <h2>長期待辦 <span class="hint">(以後、長期)</span></h2>
+                    <div class="actions">
+                        <button class="icon-btn" onclick="addManualTask('longterm')" title="新增">+</button>
+                        <button class="icon-btn clear" onclick="clearCategory('longterm')" title="清空清單">🗑️</button>
+                    </div>
+                </div>
+                <ul id="list-longterm" class="todo-list" data-category="longterm"></ul>
+            </section>
+        </main>
+
+        <div class="mic-container">
+            <div id="recording-status" class="status-badge hidden">聆聽中...</div>
+            <button id="mic-btn" class="mic-btn" aria-label="Start recording">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="22"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
