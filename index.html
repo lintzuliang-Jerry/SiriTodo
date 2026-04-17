@@ -22,7 +22,6 @@
                     <h2>當天待辦 <span class="hint">(今天、晚點)</span></h2>
                     <div class="actions">
                         <button class="icon-btn" onclick="addManualTask('today')" title="新增">+</button>
-                        <button class="icon-btn clear" onclick="clearCategory('today')" title="清空清單">🗑️</button>
                     </div>
                 </div>
                 <ul id="list-today" class="todo-list" data-category="today"></ul>
@@ -32,8 +31,8 @@
                 <div class="section-header">
                     <h2>每日例行 <span class="hint">(每天、固定)</span></h2>
                     <div class="actions">
+                        <button class="icon-btn" onclick="resetRoutine()" title="重置打勾狀態">↺</button>
                         <button class="icon-btn" onclick="addManualTask('routine')" title="新增">+</button>
-                        <button class="icon-btn clear" onclick="clearCategory('routine')" title="清空清單">🗑️</button>
                     </div>
                 </div>
                 <ul id="list-routine" class="todo-list" data-category="routine"></ul>
@@ -44,7 +43,6 @@
                     <h2>長期待辦 <span class="hint">(以後、長期)</span></h2>
                     <div class="actions">
                         <button class="icon-btn" onclick="addManualTask('longterm')" title="新增">+</button>
-                        <button class="icon-btn clear" onclick="clearCategory('longterm')" title="清空清單">🗑️</button>
                     </div>
                 </div>
                 <ul id="list-longterm" class="todo-list" data-category="longterm"></ul>

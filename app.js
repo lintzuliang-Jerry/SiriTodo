@@ -76,22 +76,37 @@ function renderList(category) {
         return;
     }
 
-    todos[category].forEach((task) => {
+    todos[category].forEach((task, index) => {
         const li = document.createElement('li');
         li.dataset.id = task.id;
         li.dataset.category = category;
         if(task.done) li.classList.add('done');
         
-        // 1. Checkbox
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = task.done;
-        checkbox.onchange = (e) => {
-            task.done = e.target.checked;
-            if(task.done) li.classList.add('done');
-            else li.classList.remove('done');
-            saveTodos();
-        };
+        // 1. Checkbox or Number according to section
+        if (category === 'routine') {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = task.done;
+            checkbox.onchange = (e) => {
+                task.done = e.target.checked;
+                if(task.done) li.classList.add('done');
+                else li.classList.remove('done');
+                saveTodos();
+            };
+            li.appendChild(checkbox);
+        } else {
+            const numSpan = document.createElement('div');
+            numSpan.className = 'task-number';
+            numSpan.textContent = index + 1;
+            li.appendChild(numSpan);
+            
+            // Priority Emphasis for top 3 in Today
+            if (category === 'today') {
+                if (index === 0) li.classList.add('priority-1');
+                else if (index === 1) li.classList.add('priority-2');
+                else if (index === 2) li.classList.add('priority-3');
+            }
+        }
 
         // 2. Text (The Handle)
         const span = document.createElement('div');
@@ -116,7 +131,6 @@ function renderList(category) {
 
         actionsDiv.appendChild(editBtn);
 
-        li.appendChild(checkbox);
         li.appendChild(span);
         li.appendChild(actionsDiv);
         
@@ -134,13 +148,10 @@ window.addManualTask = function(category) {
     renderList(category);
 };
 
-window.clearCategory = function(category) {
-    if(todos[category].length === 0) return;
-    if(confirm('確定要清空這個清單裡的所有任務嗎？')) {
-        todos[category] = [];
-        saveTodos();
-        renderList(category);
-    }
+window.resetRoutine = function() {
+    todos['routine'].forEach(t => t.done = false);
+    saveTodos();
+    renderList('routine');
 };
 
 function deleteItemById(category, id) {

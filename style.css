@@ -98,39 +98,62 @@ header p {
     box-shadow: 0 12px 28px rgba(149, 157, 165, 0.12);
 }
 
-/* ★ 圓角方塊 Checkbox (方格但不要太銳利) */
+/* ★ 圓角方塊 Checkbox (帶有清晰的打勾圖示) */
 input[type="checkbox"] {
+    position: relative;
     appearance: none;
     background-color: #fdfdfd;
     margin: 0;
-    font: inherit;
-    color: currentColor;
     width: 22px;
     height: 22px;
-    border: 2px solid #d1d9e6; /* 溫和的灰藍色邊框 */
-    border-radius: 6px; /* 介於直角與純圓之間，溫潤感 */
-    display: grid;
-    place-content: center;
+    border: 2px solid #cbd5e1;
+    border-radius: 6px;
     cursor: pointer;
     flex-shrink: 0;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease;
 }
 
-input[type="checkbox"]::before {
+input[type="checkbox"]::after {
     content: "";
-    width: 12px; height: 12px;
-    transform: scale(0);
-    transition: 150ms transform cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: inset 1em 1em white;
-    background-color: CanvasText;
-    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    position: absolute;
+    display: none;
+    left: 6px;
+    top: 2px;
+    width: 6px;
+    height: 11px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
 }
 
 input[type="checkbox"]:checked { 
     background-color: var(--accent-color); 
     border-color: var(--accent-color); 
 }
-input[type="checkbox"]:checked::before { transform: scale(1); }
+input[type="checkbox"]:checked::after { 
+    display: block; 
+}
+/* ★ 數字 (Numbering) & Priority Emphasis */
+.task-number {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0.5;
+    flex-shrink: 0;
+    background-color: transparent;
+    transition: all 0.3s ease;
+}
+
+/* 僅針對排名的數字做強調，維持精美的純白卡片背景 */
+.todo-list li.priority-1 .task-number { background-color: var(--accent-color); color: white; opacity: 1; }
+.todo-list li.priority-2 .task-number { background-color: rgba(123, 163, 149, 0.6); color: white; opacity: 1; }
+.todo-list li.priority-3 .task-number { background-color: rgba(123, 163, 149, 0.3); color: white; opacity: 1; }
 
 /* Text Area (Now the Drag Handle) */
 .todo-list li .task-text { 
