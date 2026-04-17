@@ -21,7 +21,9 @@
                 <div class="section-header">
                     <h2>當天待辦 <span class="hint">(今天、晚點)</span></h2>
                     <div class="actions">
-                        <button class="icon-btn" onclick="addManualTask('today')" title="新增">+</button>
+                        <button class="icon-btn" onclick="addManualTask('today')" title="新增">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
                     </div>
                 </div>
                 <ul id="list-today" class="todo-list" data-category="today"></ul>
@@ -31,8 +33,12 @@
                 <div class="section-header">
                     <h2>每日例行 <span class="hint">(每天、固定)</span></h2>
                     <div class="actions">
-                        <button class="icon-btn" onclick="resetRoutine()" title="重置打勾狀態">↺</button>
-                        <button class="icon-btn" onclick="addManualTask('routine')" title="新增">+</button>
+                        <button class="icon-btn" onclick="resetRoutine()" title="重置打勾狀態">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                        </button>
+                        <button class="icon-btn" onclick="addManualTask('routine')" title="新增">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
                     </div>
                 </div>
                 <ul id="list-routine" class="todo-list" data-category="routine"></ul>
@@ -42,7 +48,9 @@
                 <div class="section-header">
                     <h2>長期待辦 <span class="hint">(以後、長期)</span></h2>
                     <div class="actions">
-                        <button class="icon-btn" onclick="addManualTask('longterm')" title="新增">+</button>
+                        <button class="icon-btn" onclick="addManualTask('longterm')" title="新增">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </button>
                     </div>
                 </div>
                 <ul id="list-longterm" class="todo-list" data-category="longterm"></ul>
@@ -50,13 +58,9 @@
         </main>
 
         <div class="mic-container">
-            <div id="recording-status" class="status-badge hidden">聆聽中...</div>
-            <button id="mic-btn" class="mic-btn" aria-label="Start recording">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                    <line x1="12" y1="19" x2="12" y2="22"></line>
-                </svg>
+            <div id="recording-status" class="status-badge hidden">正在聆聽...</div>
+            <button id="mic-btn" class="mic-btn" title="語音輸入">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
             </button>
         </div>
     </div>
