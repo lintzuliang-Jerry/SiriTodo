@@ -1,0 +1,17 @@
+{
+  "name": "SiriTodo - 極速記",
+  "short_name": "SiriTodo",
+  "description": "離線語音智能待辦清單",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f0f4f8",
+  "theme_color": "#f0f4f8",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

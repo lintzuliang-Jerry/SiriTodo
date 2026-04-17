@@ -9,6 +9,8 @@
     <meta name="theme-color" content="#f0f4f8">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
 </head>
 <body>
     <header>
@@ -126,6 +128,16 @@
         </button>
     </div>
 
+    <script>
+        // Register Service Worker for PWA Offline Support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker Registered!', reg))
+                .catch(err => console.error('Service Worker Registration Failed!', err));
+            });
+        }
+    </script>
     <script src="app.js"></script>
 </body>
 </html>
