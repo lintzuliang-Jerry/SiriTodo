@@ -366,17 +366,23 @@ function bindGestures(li, handle, id, category) {
                         
                         // Dynamically re-evaluate collision while container is sliding under cursor
                         clone.style.visibility = 'hidden'; 
-                        const hoveredEl = document.elementFromPoint(rect.left + rect.width/2, currentY);
+                        const cloneRect = clone.getBoundingClientRect();
+                        const cloneMiddleY = cloneRect.top + cloneRect.height / 2;
+                        const hoveredEl = document.elementFromPoint(cloneRect.left + cloneRect.width/2, cloneMiddleY);
                         clone.style.visibility = 'visible';
 
                         if (hoveredEl) {
                             const hoveredLi = hoveredEl.closest('li');
                             if (hoveredLi && hoveredLi !== placeholder && hoveredLi.dataset.id) {
+                                const placeholderIndex = Array.from(placeholder.parentNode.children).indexOf(placeholder);
+                                const hoveredIndex = Array.from(hoveredLi.parentNode.children).indexOf(hoveredLi);
+                                
                                 const hoverRect = hoveredLi.getBoundingClientRect();
                                 const hoverMiddleY = hoverRect.top + hoverRect.height / 2;
-                                if (scrollSpeed > 0 && currentY > hoverMiddleY) {
+                                
+                                if (placeholderIndex < hoveredIndex && cloneMiddleY > hoverMiddleY) {
                                     hoveredLi.parentNode.insertBefore(placeholder, hoveredLi.nextSibling);
-                                } else if (scrollSpeed < 0 && currentY < hoverMiddleY) {
+                                } else if (placeholderIndex > hoveredIndex && cloneMiddleY < hoverMiddleY) {
                                     hoveredLi.parentNode.insertBefore(placeholder, hoveredLi);
                                 }
                             }
@@ -432,9 +438,10 @@ function bindGestures(li, handle, id, category) {
         if (clone) {
             clone.style.transform = `translateY(${diffY}px) scale(1.02)`;
             
-            const rect = clone.getBoundingClientRect();
+            const cloneRect = clone.getBoundingClientRect();
+            const cloneMiddleY = cloneRect.top + cloneRect.height / 2;
             clone.style.visibility = 'hidden'; 
-            const hoveredEl = document.elementFromPoint(rect.left + rect.width/2, rect.top + rect.height/2);
+            const hoveredEl = document.elementFromPoint(cloneRect.left + cloneRect.width/2, cloneMiddleY);
             clone.style.visibility = 'visible';
 
             if (hoveredEl) {
@@ -442,13 +449,15 @@ function bindGestures(li, handle, id, category) {
                 const hoveredUl = hoveredEl.closest('ul.todo-list');
 
                 if (hoveredLi && hoveredLi !== placeholder && hoveredLi.dataset.id) {
+                    const placeholderIndex = Array.from(placeholder.parentNode.children).indexOf(placeholder);
+                    const hoveredIndex = Array.from(hoveredLi.parentNode.children).indexOf(hoveredLi);
+                    
                     const hoverRect = hoveredLi.getBoundingClientRect();
                     const hoverMiddleY = hoverRect.top + hoverRect.height / 2;
                     
-                    // ANTI-JITTER DEADZONE: Only swap if we passed the equator in the direction of travel!
-                    if (movingDown && currentY > hoverMiddleY) {
+                    if (placeholderIndex < hoveredIndex && cloneMiddleY > hoverMiddleY) {
                         hoveredLi.parentNode.insertBefore(placeholder, hoveredLi.nextSibling);
-                    } else if (movingUp && currentY < hoverMiddleY) {
+                    } else if (placeholderIndex > hoveredIndex && cloneMiddleY < hoverMiddleY) {
                         hoveredLi.parentNode.insertBefore(placeholder, hoveredLi);
                     }
                 } else if (hoveredUl) {
