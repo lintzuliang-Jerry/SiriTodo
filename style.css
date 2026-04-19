@@ -378,3 +378,10 @@ input[type="checkbox"]:checked::after { display: block; }
 .deleting-anim {
     animation: shatter 0.3s ease-out forwards !important;
 }
+
+/* Action Buttons Flex Layout */
+.task-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}

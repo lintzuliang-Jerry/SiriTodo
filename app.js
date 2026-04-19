@@ -192,8 +192,25 @@ window.saveSettings = function() {
 // ---------------------------------------------------------
 // UI Rendering & Interaction (Cloning Aware)
 // ---------------------------------------------------------
+
+function updateCategoryHints() {
+    document.querySelectorAll('.section-header h2').forEach(h2 => {
+        const hintSpan = h2.querySelector('.hint');
+        if (!hintSpan) return;
+        const title = h2.textContent;
+        if (title.includes('每日例行')) {
+            hintSpan.textContent = '(' + keywordRules.routine.slice(0, 2).join('、') + ')';
+        } else if (title.includes('當天待辦')) {
+            hintSpan.textContent = '(' + keywordRules.today.slice(0, 2).join('、') + ')';
+        } else if (title.includes('長期待辦')) {
+            hintSpan.textContent = '(' + keywordRules.longterm.slice(0, 2).join('、') + ')';
+        }
+    });
+}
+
 function renderAll() {
     Object.keys(listSelectors).forEach(category => renderList(category));
+    updateCategoryHints();
 }
 
 function renderList(category) {
@@ -316,6 +333,7 @@ function bindGestures(li, handle, id, category) {
     let isDragging = false;
     let clone = null, placeholder = null;
     let lastY = 0;
+    let currentY = 0; // Track for auto-scroll
     
     handle.addEventListener('pointerdown', (e) => {
         // Ignore right clicks
@@ -323,17 +341,58 @@ function bindGestures(li, handle, id, category) {
         
         startY = e.clientY;
         lastY = e.clientY;
+        currentY = e.clientY;
         isDragging = true; 
         
         if (handle.setPointerCapture) {
             handle.setPointerCapture(e.pointerId);
         }
+
+        // --- Auto Edge-Scroll Engine ---
+        const autoScroll = () => {
+            if (!isDragging) return;
+            if (clone && placeholder) {
+                const ul = placeholder.closest('ul.todo-list');
+                if (ul) {
+                    const rect = ul.getBoundingClientRect();
+                    const edge = 45; // Edge trigger zone
+                    let scrollSpeed = 0;
+                    
+                    if (currentY < rect.top + edge) scrollSpeed = -7;
+                    else if (currentY > rect.bottom - edge) scrollSpeed = 7;
+                    
+                    if (scrollSpeed !== 0) {
+                        ul.scrollBy(0, scrollSpeed);
+                        
+                        // Dynamically re-evaluate collision while container is sliding under cursor
+                        clone.style.visibility = 'hidden'; 
+                        const hoveredEl = document.elementFromPoint(rect.left + rect.width/2, currentY);
+                        clone.style.visibility = 'visible';
+
+                        if (hoveredEl) {
+                            const hoveredLi = hoveredEl.closest('li');
+                            if (hoveredLi && hoveredLi !== placeholder && hoveredLi.dataset.id) {
+                                const hoverRect = hoveredLi.getBoundingClientRect();
+                                const hoverMiddleY = hoverRect.top + hoverRect.height / 2;
+                                if (scrollSpeed > 0 && currentY > hoverMiddleY) {
+                                    hoveredLi.parentNode.insertBefore(placeholder, hoveredLi.nextSibling);
+                                } else if (scrollSpeed < 0 && currentY < hoverMiddleY) {
+                                    hoveredLi.parentNode.insertBefore(placeholder, hoveredLi);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            requestAnimationFrame(autoScroll);
+        };
+        requestAnimationFrame(autoScroll);
     });
 
     handle.addEventListener('pointermove', (e) => {
         if (!isDragging) return;
         const diffY = e.clientY - startY;
-        const currentY = e.clientY;
+        currentY = e.clientY;
         
         // Direction parameters for anti-jitter deadzone
         const movingDown = currentY > lastY;
