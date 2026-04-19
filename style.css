@@ -27,8 +27,11 @@ body {
     color: var(--text-primary);
     font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
+    overflow: hidden;
     width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overscroll-behavior-y: none;
 }
 
 /* Header Configured to stay centered on top of Pager */
@@ -236,7 +239,7 @@ input[type="checkbox"]:checked::after { display: block; }
     cursor: grab;
     padding: 4px;
     user-select: none;
-    touch-action: none;
+    touch-action: pan-x pan-y;
     color: var(--text-primary);
 }
 
@@ -358,10 +361,12 @@ input[type="checkbox"]:checked::after { display: block; }
 .btn:hover { filter: brightness(0.95); transform: scale(1.05); }
 
 /* List Limits */
-.list-today { max-height: 250px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+.list-today { max-height: 250px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
 .list-today::-webkit-scrollbar { display: none; }
-.list-longterm { max-height: 168px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+.list-longterm { max-height: 168px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
 .list-longterm::-webkit-scrollbar { display: none; }
+.list-routine { max-height: calc(100dvh - 200px); overflow-y: auto; overflow-x: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+.list-routine::-webkit-scrollbar { display: none; }
 
 /* Drag Handle */
 .drag-handle {
