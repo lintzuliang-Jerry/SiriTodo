@@ -7,6 +7,13 @@ let todos = {
     longterm: []
 };
 
+// Configurable Keywords
+let keywordRules = {
+    routine: ['每天', '每週', '每個月', '例行', '固定', '每日'],
+    today: ['今天', '當天', '等一下', '晚點', '馬上', '立刻', '待會', '明早', '明天'],
+    longterm: ['以後', '長期', '目標', '未來', '將來']
+};
+
 // DOM Elements
 const micBtn = document.getElementById('mic-btn');
 const statusBadge = document.getElementById('recording-status');
@@ -107,7 +114,7 @@ function initPagerDrag() {
         if (e.pointerType === 'touch') return;
 
         // Only allow dragging on empty areas (ignore tasks & buttons)
-        if (e.target.closest('.task-text') || e.target.closest('button') || e.target.closest('input')) return;
+        if (e.target.closest('.task-text') || e.target.closest('button') || e.target.closest('input') || e.target.closest('.drag-handle')) return;
         
         isPagerDragging = true;
         startX = e.clientX;
@@ -148,6 +155,10 @@ function loadTodos() {
         if (saved) {
             todos = JSON.parse(saved);
         }
+        const savedKws = localStorage.getItem('voiceKeywords');
+        if (savedKws) {
+            keywordRules = JSON.parse(savedKws);
+        }
     } catch (e) {
         console.error("Local storage error", e);
     }
@@ -156,6 +167,27 @@ function loadTodos() {
 function saveTodos() {
     localStorage.setItem('voiceTodosDataV2', JSON.stringify(todos));
 }
+function saveKeywordsState() {
+    localStorage.setItem('voiceKeywords', JSON.stringify(keywordRules));
+}
+
+// Settings Modal
+window.openSettingsModal = function() {
+    document.getElementById('kw-routine').value = keywordRules.routine.join(',');
+    document.getElementById('kw-today').value = keywordRules.today.join(',');
+    document.getElementById('kw-longterm').value = keywordRules.longterm.join(',');
+    document.getElementById('settings-modal').classList.add('active');
+};
+window.closeSettingsModal = function() {
+    document.getElementById('settings-modal').classList.remove('active');
+};
+window.saveSettings = function() {
+    keywordRules.routine = document.getElementById('kw-routine').value.split(',').map(s=>s.trim()).filter(s=>s);
+    keywordRules.today = document.getElementById('kw-today').value.split(',').map(s=>s.trim()).filter(s=>s);
+    keywordRules.longterm = document.getElementById('kw-longterm').value.split(',').map(s=>s.trim()).filter(s=>s);
+    saveKeywordsState();
+    closeSettingsModal();
+};
 
 // ---------------------------------------------------------
 // UI Rendering & Interaction (Cloning Aware)
@@ -181,6 +213,12 @@ function renderList(category) {
             li.dataset.category = category;
             if(task.done) li.classList.add('done');
             
+            // 0. Dedicated Drag Handle (Prevents swiping conflicts)
+            const handleDiv = document.createElement('div');
+            handleDiv.className = 'drag-handle';
+            handleDiv.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>`;
+            li.appendChild(handleDiv);
+
             // 1. Checkbox or Number according to section
             if (category === 'routine') {
                 const checkbox = document.createElement('input');
@@ -206,12 +244,12 @@ function renderList(category) {
                 }
             }
 
-            // 2. Text (The Handle)
+            // 2. Text
             const span = document.createElement('div');
             span.className = 'task-text';
             span.textContent = task.text;
             
-            // 3. Actions (Edit Button only)
+            // 3. Actions (Edit + Delete)
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'task-actions';
             
@@ -227,13 +265,24 @@ function renderList(category) {
                 }
             };
 
+            const delBtn = document.createElement('button');
+            delBtn.className = 'action-btn delete-btn';
+            delBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+            delBtn.style.color = '#ff8da1';
+            delBtn.onclick = () => {
+                // Apply Shatter Animation before deleting
+                li.classList.add('deleting-anim');
+                setTimeout(() => deleteItemById(category, task.id), 250);
+            };
+
             actionsDiv.appendChild(editBtn);
+            actionsDiv.appendChild(delBtn);
 
             li.appendChild(span);
             li.appendChild(actionsDiv);
             
-            // Custom 100% JS Drag Engine
-            bindGestures(li, task.id, category);
+            // Custom 100% JS Drag Engine - Now heavily isolated to the Handle!
+            bindGestures(li, handleDiv, task.id, category);
 
             ul.appendChild(li);
         });
@@ -260,24 +309,21 @@ function deleteItemById(category, id) {
 }
 
 // ---------------------------------------------------------
-// Unified Pure JS Gesture Engine (Swipe to Delete & Drag to Sort)
+// Unified Pure JS Gesture Engine (Drag to Sort ONLY)
 // ---------------------------------------------------------
-function bindGestures(li, id, category) {
-    let startX = 0, startY = 0;
+function bindGestures(li, handle, id, category) {
+    let startY = 0;
     let isDragging = false;
-    let gestureType = null; // 'swipe' or 'sort'
     let clone = null, placeholder = null;
-
-    const handle = li.querySelector('.task-text');
+    let lastY = 0;
     
     handle.addEventListener('pointerdown', (e) => {
         // Ignore right clicks
         if(e.button !== 0 && e.type !== "touchstart") return; 
         
-        startX = e.clientX; 
         startY = e.clientY;
+        lastY = e.clientY;
         isDragging = true; 
-        gestureType = null;
         
         if (handle.setPointerCapture) {
             handle.setPointerCapture(e.pointerId);
@@ -286,75 +332,73 @@ function bindGestures(li, id, category) {
 
     handle.addEventListener('pointermove', (e) => {
         if (!isDragging) return;
-        const diffX = e.clientX - startX;
         const diffY = e.clientY - startY;
+        const currentY = e.clientY;
+        
+        // Direction parameters for anti-jitter deadzone
+        const movingDown = currentY > lastY;
+        const movingUp = currentY < lastY;
 
-        // Determine intent based on distance
-        if (!gestureType) {
-            if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
-                if (Math.abs(diffX) > Math.abs(diffY)) {
-                    gestureType = 'swipe';
-                    li.style.transition = 'none';
-                } else {
-                    gestureType = 'sort';
-                    
-                    // Create visual placeholder
-                    placeholder = document.createElement('li');
-                    placeholder.className = li.className;
-                    placeholder.style.opacity = '0.3';
-                    placeholder.style.border = '2px dashed var(--accent-color)';
-                    placeholder.style.height = `${li.offsetHeight}px`;
-                    
-                    // Create floating clone
-                    clone = li.cloneNode(true);
-                    const rect = li.getBoundingClientRect();
-                    clone.style.position = 'fixed';
-                    clone.style.top = `${rect.top}px`;
-                    clone.style.left = `${rect.left}px`;
-                    clone.style.width = `${rect.width}px`;
-                    clone.style.boxSizing = 'border-box';
-                    clone.style.zIndex = '9999';
-                    clone.style.pointerEvents = 'none'; // let mouse events fall through
-                    clone.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
-                    clone.style.transform = `translateY(${diffY}px)`;
-                    
-                    document.body.appendChild(clone);
-                    li.parentNode.insertBefore(placeholder, li);
-                    li.style.display = 'none'; // hide original
-                }
-            }
+        // Initialize drag visual when pulled significantly
+        if (!clone && Math.abs(diffY) > 5) {
+            // Create visual placeholder
+            placeholder = document.createElement('li');
+            placeholder.className = li.className;
+            placeholder.style.opacity = '0.3';
+            placeholder.style.border = '2px dashed var(--accent-color)';
+            placeholder.style.height = `${li.offsetHeight}px`;
+            placeholder.style.margin = '0';
+            
+            // Create floating clone
+            clone = li.cloneNode(true);
+            const rect = li.getBoundingClientRect();
+            clone.style.position = 'fixed';
+            clone.style.top = `${rect.top}px`;
+            clone.style.left = `${rect.left}px`;
+            clone.style.width = `${rect.width}px`;
+            clone.style.boxSizing = 'border-box';
+            clone.style.zIndex = '9999';
+            clone.style.pointerEvents = 'none'; // let mouse events fall through
+            clone.style.boxShadow = '0 15px 35px rgba(0,0,0,0.2)';
+            clone.style.opacity = '0.9';
+            clone.style.transform = `translateY(${diffY}px) scale(1.02)`;
+            clone.style.transition = 'transform 0.05s linear'; // smoothing
+            
+            document.body.appendChild(clone);
+            li.parentNode.insertBefore(placeholder, li);
+            li.style.display = 'none'; // hide original
         }
 
-        // Apply visual transform based on type
-        if (gestureType === 'swipe') {
-            li.style.transform = `translateX(${diffX}px)`;
-            li.style.backgroundColor = Math.abs(diffX) > 80 ? 'var(--bg-delete)' : 'var(--card-bg)';
-        } else if (gestureType === 'sort') {
-            clone.style.transform = `translateY(${diffY}px)`;
+        // Apply visual transform
+        if (clone) {
+            clone.style.transform = `translateY(${diffY}px) scale(1.02)`;
             
             const rect = clone.getBoundingClientRect();
             clone.style.visibility = 'hidden'; 
             const hoveredEl = document.elementFromPoint(rect.left + rect.width/2, rect.top + rect.height/2);
             clone.style.visibility = 'visible';
 
-            if (!hoveredEl) return;
-            
-            const hoveredLi = hoveredEl.closest('li');
-            const hoveredUl = hoveredEl.closest('ul.todo-list');
+            if (hoveredEl) {
+                const hoveredLi = hoveredEl.closest('li');
+                const hoveredUl = hoveredEl.closest('ul.todo-list');
 
-            if (hoveredLi && hoveredLi !== placeholder && hoveredLi.dataset.id) {
-                const hoverRect = hoveredLi.getBoundingClientRect();
-                const hoverMiddleY = hoverRect.top + hoverRect.height / 2;
-                if (e.clientY < hoverMiddleY) {
-                    hoveredLi.parentNode.insertBefore(placeholder, hoveredLi);
-                } else {
-                    hoveredLi.parentNode.insertBefore(placeholder, hoveredLi.nextSibling);
+                if (hoveredLi && hoveredLi !== placeholder && hoveredLi.dataset.id) {
+                    const hoverRect = hoveredLi.getBoundingClientRect();
+                    const hoverMiddleY = hoverRect.top + hoverRect.height / 2;
+                    
+                    // ANTI-JITTER DEADZONE: Only swap if we passed the equator in the direction of travel!
+                    if (movingDown && currentY > hoverMiddleY) {
+                        hoveredLi.parentNode.insertBefore(placeholder, hoveredLi.nextSibling);
+                    } else if (movingUp && currentY < hoverMiddleY) {
+                        hoveredLi.parentNode.insertBefore(placeholder, hoveredLi);
+                    }
+                } else if (hoveredUl) {
+                    // Allows dropping into an empty category list natively
+                    hoveredUl.appendChild(placeholder);
                 }
-            } else if (hoveredUl) {
-                // Allows dropping into an empty category list natively
-                hoveredUl.appendChild(placeholder);
             }
         }
+        lastY = currentY;
     });
 
     const endGesture = (e) => {
@@ -364,17 +408,7 @@ function bindGestures(li, id, category) {
             handle.releasePointerCapture(e.pointerId);
         }
 
-        if (gestureType === 'swipe') {
-            li.style.transition = 'transform 0.3s ease, background-color 0.3s ease';
-            const diffX = e.clientX - startX;
-            if (Math.abs(diffX) > 80) {
-                li.style.transform = `translateX(${diffX > 0 ? 1000 : -1000}px)`; 
-                setTimeout(() => deleteItemById(category, id), 250);
-            } else {
-                li.style.transform = `translateX(0)`;
-                li.style.backgroundColor = 'var(--card-bg)';
-            }
-        } else if (gestureType === 'sort') {
+        if (clone) {
             const dropList = placeholder.parentNode;
             
             dropList.insertBefore(li, placeholder);
@@ -403,8 +437,10 @@ function bindGestures(li, id, category) {
             });
             saveTodos();
             renderAll(); // Sync to all clones instantly
+            
+            clone = null;
+            placeholder = null;
         }
-        gestureType = null;
     };
 
     handle.addEventListener('pointerup', endGesture);
@@ -418,9 +454,9 @@ function parseTask(originalText) {
     let category = 'today'; 
     let cleanText = originalText;
 
-    const routines = ['每天', '每週', '每個月', '例行', '固定', '每日'];
-    const longterms = ['以後', '長期', '目標', '未來', '將來'];
-    const todays = ['今天', '當天', '等一下', '晚點', '馬上', '立刻', '待會', '明早', '明天'];
+    const routines = keywordRules.routine;
+    const longterms = keywordRules.longterm;
+    const todays = keywordRules.today;
     
     if (routines.some(kw => originalText.includes(kw))) { category = 'routine'; } 
     else if (longterms.some(kw => originalText.includes(kw))) { category = 'longterm'; } 

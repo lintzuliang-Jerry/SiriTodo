@@ -14,11 +14,16 @@
 </head>
 <body>
     <header>
-        <h1>My Tasks</h1>
-        <div class="dots-indicator" id="dots-indicator">
-            <div class="dot active" onclick="scrollToPage(0)"></div>
-            <div class="dot" onclick="scrollToPage(1)"></div>
+        <div class="header-left">
+            <h1>My Tasks</h1>
+            <div class="dots-indicator" id="dots-indicator">
+                <div class="dot active" onclick="scrollToPage(0)"></div>
+                <div class="dot" onclick="scrollToPage(1)"></div>
+            </div>
         </div>
+        <button class="icon-btn" onclick="openSettingsModal()" title="設定">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
     </header>
 
     <main id="pager" class="pager">
@@ -126,6 +131,26 @@
         <button id="mic-btn" class="mic-btn" title="語音輸入">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
         </button>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>語音分類關鍵字設定</h3>
+            <label>「每日例行」關鍵字 (用逗號隔開)：</label>
+            <input type="text" id="kw-routine" value="每天,每週,每個月,例行,固定,每日">
+            
+            <label>「當天待辦」關鍵字 (用逗號隔開)：</label>
+            <input type="text" id="kw-today" value="今天,當天,等一下,晚點,馬上,立刻,待會,明早,明天">
+            
+            <label>「長期待辦」關鍵字 (用逗號隔開)：</label>
+            <input type="text" id="kw-longterm" value="以後,長期,目標,未來,將來">
+            
+            <div class="modal-actions">
+                <button class="btn btn-cancel" onclick="closeSettingsModal()">取消</button>
+                <button class="btn btn-save" onclick="saveSettings()">儲存</button>
+            </div>
+        </div>
     </div>
 
     <script>
