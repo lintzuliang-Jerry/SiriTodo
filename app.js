@@ -7,12 +7,15 @@ let todos = {
     longterm: []
 };
 
-// Configurable Keywords
+// Configurable Keywords (longterm is now the fallback category — no keywords needed)
 let keywordRules = {
     routine: ['每天', '每週', '每個月', '例行', '固定', '每日'],
     today: ['今天', '當天', '等一下', '晚點', '馬上', '立刻', '待會', '明早', '明天'],
-    longterm: ['以後', '長期', '目標', '未來', '將來']
+    longterm: []
 };
+
+// Edit modal state
+let editContext = null; // { category, taskId, isNew }
 
 // DOM Elements
 const micBtn = document.getElementById('mic-btn');
@@ -175,7 +178,6 @@ function saveKeywordsState() {
 window.openSettingsModal = function() {
     document.getElementById('kw-routine').value = keywordRules.routine.join(',');
     document.getElementById('kw-today').value = keywordRules.today.join(',');
-    document.getElementById('kw-longterm').value = keywordRules.longterm.join(',');
     document.getElementById('settings-modal').classList.add('active');
 };
 window.closeSettingsModal = function() {
@@ -184,9 +186,52 @@ window.closeSettingsModal = function() {
 window.saveSettings = function() {
     keywordRules.routine = document.getElementById('kw-routine').value.split(',').map(s=>s.trim()).filter(s=>s);
     keywordRules.today = document.getElementById('kw-today').value.split(',').map(s=>s.trim()).filter(s=>s);
-    keywordRules.longterm = document.getElementById('kw-longterm').value.split(',').map(s=>s.trim()).filter(s=>s);
+    keywordRules.longterm = [];
     saveKeywordsState();
     closeSettingsModal();
+};
+
+// Edit / New Task Modal
+window.openEditModal = function(category, taskId, isNew) {
+    editContext = { category, taskId, isNew: !!isNew };
+    const task = todos[category].find(t => t.id === taskId);
+    if (!task) return;
+    document.getElementById('edit-modal-title').textContent = isNew ? '新增任務' : '編輯任務';
+    const ta = document.getElementById('edit-text');
+    ta.value = task.text || '';
+    document.getElementById('edit-modal').classList.add('active');
+    setTimeout(() => { ta.focus(); ta.select(); }, 50);
+};
+window.closeEditModal = function() {
+    document.getElementById('edit-modal').classList.remove('active');
+    // If user cancelled a fresh new card, remove it
+    if (editContext && editContext.isNew) {
+        const { category, taskId } = editContext;
+        const task = todos[category].find(t => t.id === taskId);
+        if (task && !task.text.trim()) {
+            todos[category] = todos[category].filter(t => t.id !== taskId);
+            saveTodos();
+            renderAll();
+        }
+    }
+    editContext = null;
+};
+window.saveEditModal = function() {
+    if (!editContext) return;
+    const { category, taskId, isNew } = editContext;
+    const text = document.getElementById('edit-text').value.trim();
+    const task = todos[category].find(t => t.id === taskId);
+    if (task) {
+        if (isNew && !text) {
+            todos[category] = todos[category].filter(t => t.id !== taskId);
+        } else if (text) {
+            task.text = text;
+        }
+        saveTodos();
+        renderAll();
+    }
+    document.getElementById('edit-modal').classList.remove('active');
+    editContext = null;
 };
 
 // ---------------------------------------------------------
@@ -197,20 +242,27 @@ function updateCategoryHints() {
     document.querySelectorAll('.section-header h2').forEach(h2 => {
         const hintSpan = h2.querySelector('.hint');
         if (!hintSpan) return;
-        const title = h2.textContent;
-        if (title.includes('每日例行')) {
-            hintSpan.textContent = '(' + keywordRules.routine.slice(0, 2).join('、') + ')';
-        } else if (title.includes('當天待辦')) {
-            hintSpan.textContent = '(' + keywordRules.today.slice(0, 2).join('、') + ')';
-        } else if (title.includes('長期待辦')) {
-            hintSpan.textContent = '(' + keywordRules.longterm.slice(0, 2).join('、') + ')';
+        if (hintSpan.classList.contains('hint-routine')) {
+            hintSpan.textContent = '(' + (keywordRules.routine.slice(0, 2).join('、') || '—') + ')';
+        } else if (hintSpan.classList.contains('hint-today')) {
+            hintSpan.textContent = '(' + (keywordRules.today.slice(0, 2).join('、') || '—') + ')';
         }
+    });
+}
+
+function updateCountBadges() {
+    ['today', 'routine', 'longterm'].forEach(cat => {
+        const n = todos[cat].length;
+        document.querySelectorAll(`[data-count-for="${cat}"]`).forEach(el => {
+            el.textContent = n;
+        });
     });
 }
 
 function renderAll() {
     Object.keys(listSelectors).forEach(category => renderList(category));
     updateCategoryHints();
+    updateCountBadges();
 }
 
 function renderList(category) {
@@ -218,9 +270,22 @@ function renderList(category) {
     
     uls.forEach(ul => {
         ul.innerHTML = '';
-        
+
+        // Cross-category drop slot (only for today <-> longterm)
+        if (category === 'today' || category === 'longterm') {
+            const slot = document.createElement('li');
+            slot.className = 'cross-drop-slot';
+            slot.dataset.target = category === 'today' ? 'longterm' : 'today';
+            slot.innerHTML = `<span class="task-text">↕ 拖曳至此 → 移動到「${category === 'today' ? '長期' : '當天'}待辦」</span>`;
+            ul.appendChild(slot);
+        }
+
         if (todos[category].length === 0) {
-            ul.innerHTML = `<li class="empty-placeholder" style="justify-content: center; opacity: 0.5; pointer-events:none;"><span class="task-text" style="text-align:center; font-size: 14px;">沒有事項</span></li>`;
+            const empty = document.createElement('li');
+            empty.className = 'empty-placeholder';
+            empty.style.cssText = 'justify-content: center; opacity: 0.5; pointer-events:none;';
+            empty.innerHTML = `<span class="task-text" style="text-align:center; font-size: 14px;">沒有事項</span>`;
+            ul.appendChild(empty);
             return;
         }
 
@@ -274,12 +339,7 @@ function renderList(category) {
             editBtn.className = 'action-btn edit';
             editBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
             editBtn.onclick = () => {
-                const newText = prompt('編輯任務內容：', task.text);
-                if (newText !== null && newText.trim() !== '') {
-                    task.text = newText.trim();
-                    saveTodos();
-                    renderAll(); // Sync everywhere
-                }
+                openEditModal(category, task.id, false);
             };
 
             const delBtn = document.createElement('button');
@@ -306,11 +366,17 @@ function renderList(category) {
     });
 }
 
-// Add manual task
+// Add manual task — create an empty card and immediately open the edit modal
 window.addManualTask = function(category) {
-    todos[category].push({ id: generateId(), text: '新工作事項', done: false });
+    const newTask = { id: generateId(), text: '', done: false };
+    if (category === 'routine') {
+        todos[category].push(newTask);
+    } else {
+        todos[category].unshift(newTask);
+    }
     saveTodos();
     renderAll();
+    openEditModal(category, newTask.id, true);
 };
 
 window.resetRoutine = function() {
@@ -354,15 +420,17 @@ function bindGestures(li, handle, id, category) {
             if (clone && placeholder) {
                 const ul = placeholder.closest('ul.todo-list');
                 if (ul) {
-                    const rect = ul.getBoundingClientRect();
-                    const edge = 45; // Edge trigger zone
+                    // In drag-expand mode, body scrolls vertically
+                    const isExpanded = document.body.classList.contains('dragging-active');
+                    const scroller = isExpanded ? document.documentElement : ul;
+                    const edge = 55;
                     let scrollSpeed = 0;
-                    
-                    if (currentY < rect.top + edge) scrollSpeed = -7;
-                    else if (currentY > rect.bottom - edge) scrollSpeed = 7;
-                    
+
+                    if (currentY < edge) scrollSpeed = -8;
+                    else if (currentY > window.innerHeight - edge) scrollSpeed = 8;
+
                     if (scrollSpeed !== 0) {
-                        ul.scrollBy(0, scrollSpeed);
+                        scroller.scrollTop += scrollSpeed;
                         
                         // Dynamically re-evaluate collision while container is sliding under cursor
                         clone.style.visibility = 'hidden'; 
@@ -406,6 +474,16 @@ function bindGestures(li, handle, id, category) {
 
         // Initialize drag visual when pulled significantly
         if (!clone && Math.abs(diffY) > 5) {
+            // Activate drag-expand mode
+            document.body.classList.add('dragging-active');
+            document.body.classList.add(`dragging-from-${category}`);
+            // For longterm overlay: record header bottom as CSS var so fixed panel starts below header
+            if (category === 'longterm') {
+                const hdr = document.querySelector('header');
+                const hdrBottom = hdr ? hdr.getBoundingClientRect().bottom : 100;
+                document.documentElement.style.setProperty('--drag-panel-top', hdrBottom + 'px');
+            }
+
             // Create visual placeholder
             placeholder = document.createElement('li');
             placeholder.className = li.className;
@@ -445,16 +523,31 @@ function bindGestures(li, handle, id, category) {
             clone.style.visibility = 'visible';
 
             if (hoveredEl) {
+                const slot = hoveredEl.closest('.cross-drop-slot');
                 const hoveredLi = hoveredEl.closest('li');
                 const hoveredUl = hoveredEl.closest('ul.todo-list');
 
-                if (hoveredLi && hoveredLi !== placeholder && hoveredLi.dataset.id) {
+                // Highlight slot on hover, clear others
+                document.querySelectorAll('.cross-drop-slot.slot-hovered').forEach(el => {
+                    if (el !== slot) el.classList.remove('slot-hovered');
+                });
+                if (slot) slot.classList.add('slot-hovered');
+
+                if (slot) {
+                    // Cross-category drop: move placeholder into the target list (right after its own slot)
+                    const targetUl = document.querySelector(`.page.real .list-${slot.dataset.target}`);
+                    if (targetUl && placeholder.parentNode !== targetUl) {
+                        const targetSlot = targetUl.querySelector('.cross-drop-slot');
+                        if (targetSlot) targetUl.insertBefore(placeholder, targetSlot.nextSibling);
+                        else targetUl.insertBefore(placeholder, targetUl.firstChild);
+                    }
+                } else if (hoveredLi && hoveredLi !== placeholder && hoveredLi.dataset.id) {
                     const placeholderIndex = Array.from(placeholder.parentNode.children).indexOf(placeholder);
                     const hoveredIndex = Array.from(hoveredLi.parentNode.children).indexOf(hoveredLi);
-                    
+
                     const hoverRect = hoveredLi.getBoundingClientRect();
                     const hoverMiddleY = hoverRect.top + hoverRect.height / 2;
-                    
+
                     if (placeholderIndex < hoveredIndex && cloneMiddleY > hoverMiddleY) {
                         hoveredLi.parentNode.insertBefore(placeholder, hoveredLi.nextSibling);
                     } else if (placeholderIndex > hoveredIndex && cloneMiddleY < hoverMiddleY) {
@@ -472,6 +565,11 @@ function bindGestures(li, handle, id, category) {
     const endGesture = (e) => {
         if (!isDragging) return;
         isDragging = false;
+        document.body.classList.remove('dragging-active');
+        document.body.classList.remove(`dragging-from-${category}`);
+        document.documentElement.scrollTop = 0;
+        // Clear any slot highlight
+        document.querySelectorAll('.cross-drop-slot.slot-hovered').forEach(el => el.classList.remove('slot-hovered'));
         if (handle.releasePointerCapture) {
             handle.releasePointerCapture(e.pointerId);
         }
@@ -519,27 +617,30 @@ function bindGestures(li, handle, id, category) {
 // Rule-Based NLP Parser
 // ---------------------------------------------------------
 function parseTask(originalText) {
-    let category = 'today'; 
+    let category = 'longterm'; // default fallback: no keyword → longterm
     let cleanText = originalText;
 
     const routines = keywordRules.routine;
-    const longterms = keywordRules.longterm;
     const todays = keywordRules.today;
-    
-    if (routines.some(kw => originalText.includes(kw))) { category = 'routine'; } 
-    else if (longterms.some(kw => originalText.includes(kw))) { category = 'longterm'; } 
+
+    if (routines.some(kw => originalText.includes(kw))) { category = 'routine'; }
     else if (todays.some(kw => originalText.includes(kw))) { category = 'today'; }
 
-    const allKeywords = [...routines, ...longterms, ...todays];
+    const allKeywords = [...routines, ...todays];
     allKeywords.forEach(kw => {
         cleanText = cleanText.replace(new RegExp(kw, 'g'), '');
     });
-    
+
     cleanText = cleanText.trim();
     if (cleanText.startsWith('要') || cleanText.startsWith('的')) { cleanText = cleanText.substring(1).trim(); }
     if (cleanText.length === 0) { cleanText = originalText; }
 
-    todos[category].push({ id: generateId(), text: cleanText, done: false });
+    const newTask = { id: generateId(), text: cleanText, done: false };
+    if (category === 'routine') {
+        todos[category].push(newTask);
+    } else {
+        todos[category].unshift(newTask);
+    }
     saveTodos();
     renderAll();
     
