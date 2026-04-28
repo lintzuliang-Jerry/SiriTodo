@@ -1,10 +1,11 @@
-const CACHE_NAME = 'siritodo-v4';
+const CACHE_NAME = 'siritodo-v6';
 // Files required to load the app offline
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './sortable.min.js',
   './manifest.json',
   './icon.png'
 ];

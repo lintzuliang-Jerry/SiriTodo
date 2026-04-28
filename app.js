@@ -93,6 +93,7 @@ function initPagerWrapAround() {
 function init() {
     loadTodos();
     renderAll();
+    initSortable();
     initPagerWrapAround();
     initPagerDrag();
     
@@ -271,15 +272,6 @@ function renderList(category) {
     uls.forEach(ul => {
         ul.innerHTML = '';
 
-        // Cross-category drop slot (only for today <-> longterm)
-        if (category === 'today' || category === 'longterm') {
-            const slot = document.createElement('li');
-            slot.className = 'cross-drop-slot';
-            slot.dataset.target = category === 'today' ? 'longterm' : 'today';
-            slot.innerHTML = `<span class="task-text">↕ 拖曳至此 → 移動到「${category === 'today' ? '長期' : '當天'}待辦」</span>`;
-            ul.appendChild(slot);
-        }
-
         if (todos[category].length === 0) {
             const empty = document.createElement('li');
             empty.className = 'empty-placeholder';
@@ -358,9 +350,6 @@ function renderList(category) {
             li.appendChild(span);
             li.appendChild(actionsDiv);
             
-            // Custom 100% JS Drag Engine - Now heavily isolated to the Handle!
-            bindGestures(li, handleDiv, task.id, category);
-
             ul.appendChild(li);
         });
     });
@@ -392,225 +381,53 @@ function deleteItemById(category, id) {
 }
 
 // ---------------------------------------------------------
-// Unified Pure JS Gesture Engine (Drag to Sort ONLY)
+// SortableJS Implementation
 // ---------------------------------------------------------
-function bindGestures(li, handle, id, category) {
-    let startY = 0;
-    let isDragging = false;
-    let clone = null, placeholder = null;
-    let lastY = 0;
-    let currentY = 0; // Track for auto-scroll
-    
-    handle.addEventListener('pointerdown', (e) => {
-        // Ignore right clicks
-        if(e.button !== 0 && e.type !== "touchstart") return; 
+let sortableInstances = [];
+
+function initSortable() {
+    // Clear old instances if any
+    sortableInstances.forEach(s => s.destroy());
+    sortableInstances = [];
+
+    document.querySelectorAll('.todo-list').forEach(ul => {
+        const category = ul.dataset.category;
+        const groupName = category === 'routine' ? 'routine' : 'tasks';
         
-        startY = e.clientY;
-        lastY = e.clientY;
-        currentY = e.clientY;
-        isDragging = true; 
-        
-        if (handle.setPointerCapture) {
-            handle.setPointerCapture(e.pointerId);
-        }
-
-        // --- Auto Edge-Scroll Engine ---
-        const autoScroll = () => {
-            if (!isDragging) return;
-            if (clone && placeholder) {
-                const ul = placeholder.closest('ul.todo-list');
-                if (ul) {
-                    // In drag-expand mode, body scrolls vertically
-                    const isExpanded = document.body.classList.contains('dragging-active');
-                    const scroller = isExpanded ? document.documentElement : ul;
-                    const edge = 55;
-                    let scrollSpeed = 0;
-
-                    if (currentY < edge) scrollSpeed = -8;
-                    else if (currentY > window.innerHeight - edge) scrollSpeed = 8;
-
-                    if (scrollSpeed !== 0) {
-                        scroller.scrollTop += scrollSpeed;
-                        
-                        // Dynamically re-evaluate collision while container is sliding under cursor
-                        clone.style.visibility = 'hidden'; 
-                        const cloneRect = clone.getBoundingClientRect();
-                        const cloneMiddleY = cloneRect.top + cloneRect.height / 2;
-                        const hoveredEl = document.elementFromPoint(cloneRect.left + cloneRect.width/2, cloneMiddleY);
-                        clone.style.visibility = 'visible';
-
-                        if (hoveredEl) {
-                            const hoveredLi = hoveredEl.closest('li');
-                            if (hoveredLi && hoveredLi !== placeholder && hoveredLi.dataset.id) {
-                                const placeholderIndex = Array.from(placeholder.parentNode.children).indexOf(placeholder);
-                                const hoveredIndex = Array.from(hoveredLi.parentNode.children).indexOf(hoveredLi);
-                                
-                                const hoverRect = hoveredLi.getBoundingClientRect();
-                                const hoverMiddleY = hoverRect.top + hoverRect.height / 2;
-                                
-                                if (placeholderIndex < hoveredIndex && cloneMiddleY > hoverMiddleY) {
-                                    hoveredLi.parentNode.insertBefore(placeholder, hoveredLi.nextSibling);
-                                } else if (placeholderIndex > hoveredIndex && cloneMiddleY < hoverMiddleY) {
-                                    hoveredLi.parentNode.insertBefore(placeholder, hoveredLi);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            requestAnimationFrame(autoScroll);
-        };
-        requestAnimationFrame(autoScroll);
-    });
-
-    handle.addEventListener('pointermove', (e) => {
-        if (!isDragging) return;
-        const diffY = e.clientY - startY;
-        currentY = e.clientY;
-        
-        // Direction parameters for anti-jitter deadzone
-        const movingDown = currentY > lastY;
-        const movingUp = currentY < lastY;
-
-        // Initialize drag visual when pulled significantly
-        if (!clone && Math.abs(diffY) > 5) {
-            // Activate drag-expand mode
-            document.body.classList.add('dragging-active');
-            document.body.classList.add(`dragging-from-${category}`);
-            // For longterm overlay: record header bottom as CSS var so fixed panel starts below header
-            if (category === 'longterm') {
-                const hdr = document.querySelector('header');
-                const hdrBottom = hdr ? hdr.getBoundingClientRect().bottom : 100;
-                document.documentElement.style.setProperty('--drag-panel-top', hdrBottom + 'px');
-            }
-
-            // Create visual placeholder
-            placeholder = document.createElement('li');
-            placeholder.className = li.className;
-            placeholder.style.opacity = '0.3';
-            placeholder.style.border = '2px dashed var(--accent-color)';
-            placeholder.style.height = `${li.offsetHeight}px`;
-            placeholder.style.margin = '0';
-            
-            // Create floating clone
-            clone = li.cloneNode(true);
-            const rect = li.getBoundingClientRect();
-            clone.style.position = 'fixed';
-            clone.style.top = `${rect.top}px`;
-            clone.style.left = `${rect.left}px`;
-            clone.style.width = `${rect.width}px`;
-            clone.style.boxSizing = 'border-box';
-            clone.style.zIndex = '9999';
-            clone.style.pointerEvents = 'none'; // let mouse events fall through
-            clone.style.boxShadow = '0 15px 35px rgba(0,0,0,0.2)';
-            clone.style.opacity = '0.9';
-            clone.style.transform = `translateY(${diffY}px) scale(1.02)`;
-            clone.style.transition = 'transform 0.05s linear'; // smoothing
-            
-            document.body.appendChild(clone);
-            li.parentNode.insertBefore(placeholder, li);
-            li.style.display = 'none'; // hide original
-        }
-
-        // Apply visual transform
-        if (clone) {
-            clone.style.transform = `translateY(${diffY}px) scale(1.02)`;
-            
-            const cloneRect = clone.getBoundingClientRect();
-            const cloneMiddleY = cloneRect.top + cloneRect.height / 2;
-            clone.style.visibility = 'hidden'; 
-            const hoveredEl = document.elementFromPoint(cloneRect.left + cloneRect.width/2, cloneMiddleY);
-            clone.style.visibility = 'visible';
-
-            if (hoveredEl) {
-                const slot = hoveredEl.closest('.cross-drop-slot');
-                const hoveredLi = hoveredEl.closest('li');
-                const hoveredUl = hoveredEl.closest('ul.todo-list');
-
-                // Highlight slot on hover, clear others
-                document.querySelectorAll('.cross-drop-slot.slot-hovered').forEach(el => {
-                    if (el !== slot) el.classList.remove('slot-hovered');
-                });
-                if (slot) slot.classList.add('slot-hovered');
-
-                if (slot) {
-                    // Cross-category drop: move placeholder into the target list (right after its own slot)
-                    const targetUl = document.querySelector(`.page.real .list-${slot.dataset.target}`);
-                    if (targetUl && placeholder.parentNode !== targetUl) {
-                        const targetSlot = targetUl.querySelector('.cross-drop-slot');
-                        if (targetSlot) targetUl.insertBefore(placeholder, targetSlot.nextSibling);
-                        else targetUl.insertBefore(placeholder, targetUl.firstChild);
-                    }
-                } else if (hoveredLi && hoveredLi !== placeholder && hoveredLi.dataset.id) {
-                    const placeholderIndex = Array.from(placeholder.parentNode.children).indexOf(placeholder);
-                    const hoveredIndex = Array.from(hoveredLi.parentNode.children).indexOf(hoveredLi);
-
-                    const hoverRect = hoveredLi.getBoundingClientRect();
-                    const hoverMiddleY = hoverRect.top + hoverRect.height / 2;
-
-                    if (placeholderIndex < hoveredIndex && cloneMiddleY > hoverMiddleY) {
-                        hoveredLi.parentNode.insertBefore(placeholder, hoveredLi.nextSibling);
-                    } else if (placeholderIndex > hoveredIndex && cloneMiddleY < hoverMiddleY) {
-                        hoveredLi.parentNode.insertBefore(placeholder, hoveredLi);
-                    }
-                } else if (hoveredUl) {
-                    // Allows dropping into an empty category list natively
-                    hoveredUl.appendChild(placeholder);
-                }
-            }
-        }
-        lastY = currentY;
-    });
-
-    const endGesture = (e) => {
-        if (!isDragging) return;
-        isDragging = false;
-        document.body.classList.remove('dragging-active');
-        document.body.classList.remove(`dragging-from-${category}`);
-        document.documentElement.scrollTop = 0;
-        // Clear any slot highlight
-        document.querySelectorAll('.cross-drop-slot.slot-hovered').forEach(el => el.classList.remove('slot-hovered'));
-        if (handle.releasePointerCapture) {
-            handle.releasePointerCapture(e.pointerId);
-        }
-
-        if (clone) {
-            const dropList = placeholder.parentNode;
-            
-            dropList.insertBefore(li, placeholder);
-            placeholder.remove();
-            clone.remove();
-            li.style.display = '';
-
-            // VERY IMPORTANT: Read the state from the active cloned page the user was looking at!
-            const activePage = li.closest('.page');
-            const allTasks = [...todos.today, ...todos.routine, ...todos.longterm];
-            
-            ['today', 'routine', 'longterm'].forEach(cat => {
-                let ul = activePage.querySelector('.list-' + cat);
-                // Fallback to real DOM if the list doesn't exist on this active page copy
-                if (!ul) ul = document.querySelector('.page.real .list-' + cat);
-                if (!ul) return;
+        sortableInstances.push(new Sortable(ul, {
+            group: groupName,
+            handle: '.drag-handle',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
+            onEnd: function (evt) {
+                const itemEl = evt.item;
+                const activePage = itemEl.closest('.page');
+                const allTasks = [...todos.today, ...todos.routine, ...todos.longterm];
                 
-                let newCategoryArray = [];
-                Array.from(ul.children).forEach(child => {
-                    if (child.dataset.id) {
-                        const originalTask = allTasks.find(t => t.id === child.dataset.id);
-                        if (originalTask) newCategoryArray.push(originalTask);
-                    }
+                ['today', 'routine', 'longterm'].forEach(cat => {
+                    let listEl = activePage.querySelector(`.list-${cat}`);
+                    if (!listEl) listEl = document.querySelector(`.page.real .list-${cat}`);
+                    if (!listEl) return;
+                    
+                    let newCategoryArray = [];
+                    let seenIds = new Set();
+                    
+                    Array.from(listEl.children).forEach(child => {
+                        if (child.dataset.id && !seenIds.has(child.dataset.id)) {
+                            seenIds.add(child.dataset.id);
+                            const task = allTasks.find(t => t.id === child.dataset.id);
+                            if (task) newCategoryArray.push(task);
+                        }
+                    });
+                    todos[cat] = newCategoryArray;
                 });
-                todos[cat] = newCategoryArray;
-            });
-            saveTodos();
-            renderAll(); // Sync to all clones instantly
-            
-            clone = null;
-            placeholder = null;
-        }
-    };
-
-    handle.addEventListener('pointerup', endGesture);
-    handle.addEventListener('pointercancel', endGesture);
+                
+                saveTodos();
+                renderAll();
+            }
+        }));
+    });
 }
 
 // ---------------------------------------------------------
