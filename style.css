@@ -412,13 +412,14 @@ input[type="checkbox"]:checked::after { display: block; }
 }
 .drag-handle:active { cursor: grabbing; opacity: 1; color: var(--accent-color); }
 
-/* Shatter Animation */
-@keyframes shatter {
-    0% { transform: scale(1); opacity: 1; filter: blur(0); }
-    100% { transform: scale(0.8) translateY(10px); opacity: 0; filter: blur(4px); }
+/* Yeet Animation */
+@keyframes yeet {
+    0% { transform: translateX(0) rotate(0deg); opacity: 1; }
+    30% { transform: translateX(-15px) rotate(-3deg); opacity: 1; }
+    100% { transform: translateX(120%) rotate(15deg) scale(0.9); opacity: 0; }
 }
 .deleting-anim {
-    animation: shatter 0.3s ease-out forwards !important;
+    animation: yeet 0.35s ease-in forwards !important;
 }
 
 /* Action Buttons Flex Layout */
